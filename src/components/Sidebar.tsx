@@ -26,7 +26,7 @@ interface SidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { id: 'map', label: 'Cartographie', icon: Map },
+  { id: 'map', label: 'Cartographie avancée', icon: Map },
   { id: 'shopguard', label: 'ShopGuard AI', icon: Brain },
   { id: 'camera-setup', label: 'Installation caméras', icon: Settings },
   { id: 'main-courante', label: 'Main courante', icon: BookOpen },
