@@ -11,6 +11,7 @@ import { Demarque } from './components/Demarque';
 import { Reporting } from './components/Reporting';
 import { MapView } from './components/MapView';
 import { ShopGuardAI } from './components/ShopGuardAI';
+import { CameraSetup } from './components/CameraSetup';
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -21,6 +22,7 @@ function App() {
       case 'dashboard': return <Dashboard />;
       case 'map': return <MapView />;
       case 'shopguard': return <ShopGuardAI />;
+      case 'camera-setup': return <CameraSetup />;
       case 'main-courante': return <MainCourante />;
       case 'rondes': return <Rondes />;
       case 'alarmes': return <Alarmes />;
