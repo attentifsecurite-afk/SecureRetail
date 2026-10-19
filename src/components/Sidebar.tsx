@@ -11,7 +11,8 @@ import {
   BarChart3,
   Shield,
   Menu,
-  X
+  X,
+  Map
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,6 +24,7 @@ interface SidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+  { id: 'map', label: 'Cartographie', icon: Map },
   { id: 'main-courante', label: 'Main courante', icon: BookOpen },
   { id: 'rondes', label: 'Rondes', icon: Route },
   { id: 'alarmes', label: 'Alarmes', icon: Bell },

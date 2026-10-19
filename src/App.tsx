@@ -9,6 +9,7 @@ import { Sites } from './components/Sites';
 import { Agents } from './components/Agents';
 import { Demarque } from './components/Demarque';
 import { Reporting } from './components/Reporting';
+import { MapView } from './components/MapView';
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -17,6 +18,7 @@ function App() {
   const renderView = () => {
     switch (activeView) {
       case 'dashboard': return <Dashboard />;
+      case 'map': return <MapView />;
       case 'main-courante': return <MainCourante />;
       case 'rondes': return <Rondes />;
       case 'alarmes': return <Alarmes />;

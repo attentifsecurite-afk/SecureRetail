@@ -13,6 +13,8 @@ export interface Site {
   capteurs: number;
   agents: number;
   scoreRisque: number;
+  lat: number;
+  lng: number;
 }
 
 export interface Agent {
@@ -92,16 +94,16 @@ export interface IndicateurDI {
 
 // Sites Paris + Grande Couronne
 export const sites: Site[] = [
-  { id: 'S001', nom: 'Paris Châtelet', adresse: '12 Rue de Rivoli, 75001', zone: 'Paris Centre', type: 'Flagship', surface: 3200, criticite: 'critique', cameras: 48, camerasOnline: 46, capteurs: 32, agents: 6, scoreRisque: 78 },
-  { id: 'S002', nom: 'Paris Opéra', adresse: '45 Bd des Capucines, 75002', zone: 'Paris Centre', type: 'Premium', surface: 2800, criticite: 'élevée', cameras: 36, camerasOnline: 36, capteurs: 24, agents: 5, scoreRisque: 62 },
-  { id: 'S003', nom: 'Paris Montparnasse', adresse: '89 Bd du Montparnasse, 75006', zone: 'Paris Sud', type: 'Standard', surface: 1800, criticite: 'moyenne', cameras: 24, camerasOnline: 23, capteurs: 16, agents: 4, scoreRisque: 45 },
-  { id: 'S004', nom: 'La Défense Westfield', adresse: '1 Parvis de la Défense, 92800', zone: 'Ouest', type: 'Premium', surface: 4500, criticite: 'élevée', cameras: 64, camerasOnline: 60, capteurs: 42, agents: 8, scoreRisque: 71 },
-  { id: 'S005', nom: 'Créteil Soleil', adresse: 'Centre Commercial Créteil Soleil, 94000', zone: 'Sud-Est', type: 'Standard', surface: 2200, criticite: 'moyenne', cameras: 28, camerasOnline: 28, capteurs: 18, agents: 4, scoreRisque: 38 },
-  { id: 'S006', nom: 'Rosny 2', adresse: 'Centre Commercial Rosny 2, 93110', zone: 'Nord-Est', type: 'Standard', surface: 2600, criticite: 'élevée', cameras: 32, camerasOnline: 30, capteurs: 22, agents: 5, scoreRisque: 58 },
-  { id: 'S007', nom: 'Velizy 2', adresse: 'Centre Commercial Vélizy 2, 78170', zone: 'Ouest', type: 'Premium', surface: 3800, criticite: 'élevée', cameras: 52, camerasOnline: 52, capteurs: 36, agents: 6, scoreRisque: 52 },
-  { id: 'S008', nom: 'Saint-Quentin en Yvelines', adresse: 'Centre Commercial SQY, 78180', zone: 'Ouest', type: 'Standard', surface: 1600, criticite: 'faible', cameras: 20, camerasOnline: 20, capteurs: 14, agents: 3, scoreRisque: 28 },
-  { id: 'S009', nom: 'Paris Bastille', adresse: '28 Rue de Lyon, 75012', zone: 'Paris Est', type: 'Flagship', surface: 2400, criticite: 'élevée', cameras: 40, camerasOnline: 38, capteurs: 28, agents: 5, scoreRisque: 67 },
-  { id: 'S010', nom: 'Bobigny', adresse: 'Centre Commercial Bobigny, 93000', zone: 'Nord-Est', type: 'Standard', surface: 1900, criticite: 'moyenne', cameras: 22, camerasOnline: 22, capteurs: 16, agents: 3, scoreRisque: 42 },
+  { id: 'S001', nom: 'Paris Châtelet', adresse: '12 Rue de Rivoli, 75001', zone: 'Paris Centre', type: 'Flagship', surface: 3200, criticite: 'critique', cameras: 48, camerasOnline: 46, capteurs: 32, agents: 6, scoreRisque: 78, lat: 48.8606, lng: 2.3376 },
+  { id: 'S002', nom: 'Paris Opéra', adresse: '45 Bd des Capucines, 75002', zone: 'Paris Centre', type: 'Premium', surface: 2800, criticite: 'élevée', cameras: 36, camerasOnline: 36, capteurs: 24, agents: 5, scoreRisque: 62, lat: 48.8712, lng: 2.3289 },
+  { id: 'S003', nom: 'Paris Montparnasse', adresse: '89 Bd du Montparnasse, 75006', zone: 'Paris Sud', type: 'Standard', surface: 1800, criticite: 'moyenne', cameras: 24, camerasOnline: 23, capteurs: 16, agents: 4, scoreRisque: 45, lat: 48.8430, lng: 2.3230 },
+  { id: 'S004', nom: 'La Défense Westfield', adresse: '1 Parvis de la Défense, 92800', zone: 'Ouest', type: 'Premium', surface: 4500, criticite: 'élevée', cameras: 64, camerasOnline: 60, capteurs: 42, agents: 8, scoreRisque: 71, lat: 48.8920, lng: 2.2370 },
+  { id: 'S005', nom: 'Créteil Soleil', adresse: 'Centre Commercial Créteil Soleil, 94000', zone: 'Sud-Est', type: 'Standard', surface: 2200, criticite: 'moyenne', cameras: 28, camerasOnline: 28, capteurs: 18, agents: 4, scoreRisque: 38, lat: 48.7900, lng: 2.4640 },
+  { id: 'S006', nom: 'Rosny 2', adresse: 'Centre Commercial Rosny 2, 93110', zone: 'Nord-Est', type: 'Standard', surface: 2600, criticite: 'élevée', cameras: 32, camerasOnline: 30, capteurs: 22, agents: 5, scoreRisque: 58, lat: 48.8780, lng: 2.4850 },
+  { id: 'S007', nom: 'Velizy 2', adresse: 'Centre Commercial Vélizy 2, 78170', zone: 'Ouest', type: 'Premium', surface: 3800, criticite: 'élevée', cameras: 52, camerasOnline: 52, capteurs: 36, agents: 6, scoreRisque: 52, lat: 48.7950, lng: 2.1850 },
+  { id: 'S008', nom: 'Saint-Quentin en Yvelines', adresse: 'Centre Commercial SQY, 78180', zone: 'Ouest', type: 'Standard', surface: 1600, criticite: 'faible', cameras: 20, camerasOnline: 20, capteurs: 14, agents: 3, scoreRisque: 28, lat: 48.7750, lng: 2.0400 },
+  { id: 'S009', nom: 'Paris Bastille', adresse: '28 Rue de Lyon, 75012', zone: 'Paris Est', type: 'Flagship', surface: 2400, criticite: 'élevée', cameras: 40, camerasOnline: 38, capteurs: 28, agents: 5, scoreRisque: 67, lat: 48.8530, lng: 2.3690 },
+  { id: 'S010', nom: 'Bobigny', adresse: 'Centre Commercial Bobigny, 93000', zone: 'Nord-Est', type: 'Standard', surface: 1900, criticite: 'moyenne', cameras: 22, camerasOnline: 22, capteurs: 16, agents: 3, scoreRisque: 42, lat: 48.9090, lng: 2.4380 },
 ];
 
 // Agents
