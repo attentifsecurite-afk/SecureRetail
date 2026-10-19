@@ -3,7 +3,7 @@ import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Circle } from '@react-go
 import { MapPin, AlertTriangle, Camera, Users, Shield } from 'lucide-react';
 import { sites, alarmes } from '../data/mockData';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBZpFbAwSwce9SSxC_CingLRtc_iHqVrvU';
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
 const mapContainerStyle = {
   width: '100%',
