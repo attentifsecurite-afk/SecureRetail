@@ -137,7 +137,10 @@ export const ShopGuardAI: React.FC = () => {
   // Simulate engine processing
   useEffect(() => {
     if (!engineRunning) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       return;
     }
 
@@ -186,21 +189,23 @@ export const ShopGuardAI: React.FC = () => {
         }
       });
 
-      // Update metrics
+      // Update metrics - use functional update to avoid stale closure
       setMetrics(prev => {
-        const latest = Object.values(results)[0];
         const newMetric = {
           time: new Date().toLocaleTimeString('fr-FR', { minute: '2-digit', second: '2-digit' }),
-          latency: latest?.latency_ms || randomBetween(20, 70),
-          fps: latest?.fps || randomBetween(25, 40),
-          memory: latest?.memory_mb || randomBetween(3000, 4000),
+          latency: randomBetween(20, 70),
+          fps: randomBetween(25, 40),
+          memory: randomBetween(3000, 4000),
         };
         return [...prev, newMetric].slice(-30);
       });
     }, 800);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
   }, [engineRunning]);
 

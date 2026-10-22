@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, Fragment } from 'react';
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Circle, HeatmapLayer, Polyline } from '@react-google-maps/api';
 import { MapPin, AlertTriangle, Camera, Users, Shield, Filter, Layers, TrendingUp, Activity, Eye, Navigation } from 'lucide-react';
 import { sites, alarmes, evenements, agents } from '../data/mockData';
@@ -34,9 +34,28 @@ const getCriticiteLabel = (criticite: string) => {
 
 export const AdvancedMap: React.FC = () => {
   const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY || 'dummy-key-for-hook-compatibility',
     libraries: ['places', 'visualization'],
   });
+
+  // Check if Google Maps API key is configured
+  if (!GOOGLE_MAPS_API_KEY) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Cartographie avancée</h1>
+          <p className="text-slate-500 text-sm">Vue interactive multi-sites avec analytics</p>
+        </div>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 text-center">
+          <AlertTriangle size={32} className="text-yellow-600 mx-auto mb-3" />
+          <p className="text-yellow-800 font-medium">Clé API Google Maps non configurée</p>
+          <p className="text-yellow-600 text-sm mt-2">
+            Veuillez ajouter <code className="bg-yellow-100 px-2 py-0.5 rounded">VITE_GOOGLE_MAPS_API_KEY</code> dans votre fichier <code className="bg-yellow-100 px-2 py-0.5 rounded">.env</code>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const [selectedSite, setSelectedSite] = useState<string | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -59,26 +78,33 @@ export const AdvancedMap: React.FC = () => {
 
   // Données heatmap (incidents par localisation)
   const heatmapData = useMemo(() => {
-    if (!isLoaded) return [];
-    return evenements.map(e => {
-      const site = sites.find(s => s.id === e.siteId);
-      if (!site) return null;
-      const weight = e.gravite === 'critique' ? 3 : e.gravite === 'haute' ? 2 : 1;
-      return {
-        location: new window.google.maps.LatLng(site.lat, site.lng),
-        weight: weight,
-      };
-    }).filter(Boolean) as any[];
+    if (!isLoaded || !window.google?.maps) return [];
+    try {
+      return evenements.map(e => {
+        const site = sites.find(s => s.id === e.siteId);
+        if (!site) return null;
+        const weight = e.gravite === 'critique' ? 3 : e.gravite === 'haute' ? 2 : 1;
+        return {
+          location: new window.google.maps.LatLng(site.lat, site.lng),
+          weight: weight,
+        };
+      }).filter(Boolean) as any[];
+    } catch (error) {
+      console.warn('Error creating heatmap data:', error);
+      return [];
+    }
   }, [isLoaded]);
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map);
-    const bounds = new window.google.maps.LatLngBounds();
-    filteredSites.forEach(site => {
-      bounds.extend({ lat: site.lat, lng: site.lng });
-    });
-    map.fitBounds(bounds);
-  }, [filteredSites]);
+    if (window.google?.maps) {
+      const bounds = new window.google.maps.LatLngBounds();
+      filteredSites.forEach(site => {
+        bounds.extend({ lat: site.lat, lng: site.lng });
+      });
+      map.fitBounds(bounds);
+    }
+  }, []);
 
   const onUnmount = useCallback(() => {
     setMap(null);
@@ -298,18 +324,18 @@ export const AdvancedMap: React.FC = () => {
             const siteAgents = agents.filter(a => a.siteId === site.id && a.statut === 'en_service');
 
             return (
-              <React.Fragment key={site.id}>
+              <Fragment key={site.id}>
                 <Marker
                   position={{ lat: site.lat, lng: site.lng }}
                   onClick={() => setSelectedSite(site.id)}
-                  icon={{
-                    path: google.maps.SymbolPath.CIRCLE,
+                  icon={window.google?.maps ? {
+                    path: window.google.maps.SymbolPath.CIRCLE,
                     scale: hasActiveAlarm ? 16 : 12,
                     fillColor: getMarkerColor(site.scoreRisque),
                     fillOpacity: 1,
                     strokeColor: hasActiveAlarm ? '#dc2626' : '#ffffff',
                     strokeWeight: hasActiveAlarm ? 4 : 2,
-                  }}
+                  } : undefined}
                   title={site.nom}
                 />
 
@@ -342,7 +368,7 @@ export const AdvancedMap: React.FC = () => {
                     }}
                   />
                 )}
-              </React.Fragment>
+              </Fragment>
             );
           })}
 
@@ -372,7 +398,10 @@ export const AdvancedMap: React.FC = () => {
               <InfoWindow
                 position={{ lat: site.lat, lng: site.lng }}
                 onCloseClick={() => setSelectedSite(null)}
-                options={{ pixelOffset: new window.google.maps.Size(0, -40), maxWidth: 320 }}
+                options={{
+                  pixelOffset: window.google?.maps ? new window.google.maps.Size(0, -40) : undefined,
+                  maxWidth: 320
+                }}
               >
                 <div className="p-2 min-w-[280px]">
                   <div className="flex items-center justify-between mb-2">
