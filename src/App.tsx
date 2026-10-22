@@ -9,7 +9,7 @@ import { Sites } from './components/Sites';
 import { Agents } from './components/Agents';
 import { Demarque } from './components/Demarque';
 import { Reporting } from './components/Reporting';
-import { AdvancedMap } from './components/AdvancedMap';
+import { AdvancedMap } from './components/AdvancedMapSimple';
 import { ShopGuardAI } from './components/ShopGuardAI';
 import { CameraSetup } from './components/CameraSetup';
 import { ErrorBoundary } from './components/ErrorBoundary';
