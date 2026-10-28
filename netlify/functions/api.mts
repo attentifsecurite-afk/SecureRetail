@@ -479,4 +479,5 @@ export default async (req: Request, context: Context) => {
 
 export const config: Config = {
   path: ["/api/state", "/api/:resource", "/api/:resource/:id", "/api/cameras/:id/test"],
+  excludedPath: ["/api/maps-config", "/api/ai"],
 };

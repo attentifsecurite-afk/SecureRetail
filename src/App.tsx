@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
+import { Assistant } from './components/Assistant';
 import { MainCourante } from './components/MainCourante';
 import { Rondes } from './components/Rondes';
 import { Alarmes } from './components/Alarmes';
@@ -21,6 +22,7 @@ function App() {
   const renderView = () => {
     switch (activeView) {
       case 'dashboard': return <Dashboard />;
+      case 'assistant': return <Assistant />;
       case 'map': return <AdvancedMap />;
       case 'camera-setup': return <CameraSetup />;
       case 'main-courante': return <MainCourante />;

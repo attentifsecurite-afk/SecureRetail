@@ -3,8 +3,6 @@ import { MapPin, AlertTriangle, Camera, Users, Shield, Layers, TrendingUp, Activ
 import { useData } from '../data/DataContext';
 import { Spinner, ErrorBanner } from './Shared';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
-
 const getMarkerColor = (scoreRisque: number) => {
   if (scoreRisque >= 70) return '#ef4444';
   if (scoreRisque >= 50) return '#f59e0b';
@@ -36,6 +34,7 @@ export const AdvancedMap: React.FC = () => {
   const [showRoutes, setShowRoutes] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [mapsKey, setMapsKey] = useState<string | null>(null);
 
   const zones = useMemo(() => [...new Set(sites.map(s => s.zone))], [sites]);
 
@@ -47,12 +46,26 @@ export const AdvancedMap: React.FC = () => {
     });
   }, [sites, filterZone, filterCriticite]);
 
-  // Charger Google Maps
+  // Charger la clé serveur puis Google Maps
   useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY) {
-      setLoadError('Clé API Google Maps non configurée');
-      return;
-    }
+    let cancelled = false;
+    fetch('/api/maps-config')
+      .then(res => (res.ok ? res.json() : Promise.reject(new Error('erreur'))))
+      .then((data: { key: string | null }) => {
+        if (cancelled) return;
+        if (data.key) setMapsKey(data.key);
+        else setLoadError('Clé API Google Maps non configurée côté serveur');
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError('Impossible de récupérer la configuration Google Maps');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapsKey) return;
 
     if (window.google?.maps) {
       setMapLoaded(true);
@@ -60,7 +73,7 @@ export const AdvancedMap: React.FC = () => {
     }
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=visualization`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${mapsKey}&libraries=visualization`;
     script.async = true;
     script.defer = true;
     
@@ -83,7 +96,7 @@ export const AdvancedMap: React.FC = () => {
         script.parentNode.removeChild(script);
       }
     };
-  }, []);
+  }, [mapsKey]);
 
   // Initialiser la carte
   useEffect(() => {

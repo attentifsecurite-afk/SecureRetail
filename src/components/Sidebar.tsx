@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   Map,
-  Settings
+  Settings,
+  Bot
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,7 @@ interface SidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+  { id: 'assistant', label: 'Assistant IA', icon: Bot },
   { id: 'map', label: 'Cartographie avancée', icon: Map },
   { id: 'camera-setup', label: 'Installation caméras', icon: Settings },
   { id: 'main-courante', label: 'Main courante', icon: BookOpen },
