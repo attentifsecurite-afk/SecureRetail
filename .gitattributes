@@ -1,0 +1,9 @@
+# Fichiers chiffrés - ne pas modifier les fins de ligne
+.env.encrypted binary
+
+# Scripts Node.js - garder les fins de ligne LF
+scripts/*.js text eol=lf
+
+# Documentation
+docs/*.md text eol=lf
+*.md text eol=lf

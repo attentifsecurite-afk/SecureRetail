@@ -34,24 +34,91 @@ Caractéristiques :
 - Pipeline complet : détection → tracking → pose → LLM → décision
 - Conforme RGPD/CNIL (pas de reconnaissance faciale, données anonymisées)
 
-## 🔐 Sécurité & Configuration
+## 🔐 Sécurité & Gestion des Secrets
 
-### Variables d'environnement
-
-Créez un fichier `.env` à la racine du projet :
+### ⚡ Démarrage rapide
 
 ```bash
-# Google Maps API Key (cartographie des sites)
-VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+# Initialiser la sécurité (première fois)
+node scripts/init-security.js
 
-# ShopGuard AI Engine (backend Python)
-VITE_SHOPGUARD_API_URL=http://localhost:8900
-VITE_SHOPGUARD_WS_URL=ws://localhost:8900/ws
+# Déchiffrer pour travailler
+node scripts/decrypt-env.js
+
+# Re-chiffrer avant de commit
+node scripts/encrypt-env.js
 ```
 
-**⚠️ Important** : Ne jamais committer le fichier `.env` ! Il est déjà dans `.gitignore`.
+📖 **[Guide rapide complet →](SECURITY_QUICKSTART.md)**
 
-Un fichier `.env.example` est fourni comme template.
+### 🛡️ Chiffrement des variables d'environnement
+
+SecureRetail Ops utilise un système de chiffrement **AES-256-GCM** pour protéger les secrets.
+
+#### Installation
+
+```bash
+# 1. Copier le template
+cp .env.example .env
+
+# 2. Éditer avec vos vraies valeurs
+nano .env
+
+# 3. Chiffrer le fichier
+node scripts/encrypt-env.js
+```
+
+#### Utilisation quotidienne
+
+```bash
+# Déchiffrer pour travailler
+node scripts/decrypt-env.js
+
+# Travailler normalement...
+npm run dev
+
+# Re-chiffrer avant de commit
+node scripts/encrypt-env.js
+```
+
+#### Gestionnaire de secrets
+
+```bash
+# Lister les variables (valeurs masquées)
+node scripts/secrets-manager.js list
+
+# Ajouter/modifier une variable
+node scripts/secrets-manager.js set VITE_API_KEY "valeur"
+
+# Changer le mot de passe
+node scripts/secrets-manager.js rotate
+
+# Vérifier la configuration
+node scripts/verify-security.js
+```
+
+#### 📖 Documentation complète
+
+Consultez **[docs/SECURITY.md](docs/SECURITY.md)** pour :
+- Architecture de sécurité détaillée
+- Bonnes pratiques de gestion des secrets
+- Procédures de rotation et d'urgence
+- Conformité RGPD
+- Formation de l'équipe
+
+### ⚠️ Règles importantes
+
+✅ **À faire :**
+- Toujours chiffrer `.env` avant de commit
+- Utiliser un gestionnaire de mots de passe
+- Rotation régulière des secrets (90 jours)
+- Vérifier la configuration avec `verify-security.js`
+
+❌ **À ne jamais faire :**
+- Commiter `.env` en clair
+- Partager les mots de passe par email
+- Utiliser des mots de passe faibles
+- Stocker les secrets dans le code
 
 ### Conformité légale
 - RGPD / CNIL respecté
