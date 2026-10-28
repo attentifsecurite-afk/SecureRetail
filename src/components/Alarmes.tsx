@@ -1,13 +1,33 @@
 import React, { useState } from 'react';
-import { Bell, ShieldAlert, CheckCircle, XCircle, Eye, Clock, Camera } from 'lucide-react';
-import { alarmes, sites } from '../data/mockData';
+import { Bell, ShieldAlert, CheckCircle, XCircle, Eye, Clock, Camera, Loader2 } from 'lucide-react';
+import { useData } from '../data/DataContext';
+import { Spinner, ErrorBanner, EmptyState } from './Shared';
+import type { Alarme } from '../types';
 
 export const Alarmes: React.FC = () => {
+  const { state, loading, error, update } = useData();
+  const { alarmes, sites } = state;
   const [filter, setFilter] = useState<string>('toutes');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const filteredAlarmes = alarmes.filter(a => {
     return filter === 'toutes' || a.statut === filter;
   });
+
+  const handleStatut = async (alarme: Alarme, statut: string, leveeDoute?: boolean) => {
+    setBusyId(alarme.id);
+    setActionError(null);
+    try {
+      const patch: Record<string, unknown> = { statut };
+      if (leveeDoute !== undefined) patch.leveeDoute = leveeDoute;
+      await update('alarmes', alarme.id, patch);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Erreur lors de la mise à jour');
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const getPrioriteColor = (priorite: string) => {
     switch (priorite) {
@@ -27,6 +47,9 @@ export const Alarmes: React.FC = () => {
       default: return { text: statut, color: 'bg-slate-400 text-white' };
     }
   };
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorBanner message={error} />;
 
   return (
     <div className="space-y-6">
@@ -93,68 +116,102 @@ export const Alarmes: React.FC = () => {
         ))}
       </div>
 
-      {/* Alarms List */}
-      <div className="space-y-3">
-        {filteredAlarmes.map(alarme => {
-          const site = sites.find(s => s.id === alarme.siteId);
-          const statut = getStatutLabel(alarme.statut);
-          return (
-            <div key={alarme.id} className={`rounded-xl border-l-4 p-4 ${getPrioriteColor(alarme.priorite)}`}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    alarme.statut === 'active' ? 'bg-red-100' :
-                    alarme.statut === 'en_traitement' ? 'bg-orange-100' :
-                    'bg-green-100'
-                  }`}>
-                    <Bell size={18} className={
-                      alarme.statut === 'active' ? 'text-red-600' :
-                      alarme.statut === 'en_traitement' ? 'text-orange-600' :
-                      'text-green-600'
-                    } />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="text-sm font-semibold text-slate-800">{alarme.type}</h4>
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${statut.color}`}>
-                        {statut.text}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                      <span>{site?.nom} — {alarme.zone}</span>
-                      <span>•</span>
-                      <span>{new Date(alarme.horodatage).toLocaleString('fr-FR', {
-                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                      })}</span>
-                      {alarme.cameraAssociee && (
-                        <>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Camera size={12} /> Caméra {alarme.cameraAssociee}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
+      {actionError && <ErrorBanner message={actionError} />}
 
-                <div className="flex items-center gap-2">
-                  {alarme.leveeDoute && (
-                    <span className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
-                      <Eye size={12} /> Levée de doute OK
-                    </span>
-                  )}
-                  {(alarme.statut === 'active' || alarme.statut === 'en_traitement') && (
-                    <button className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition">
-                      Traiter
-                    </button>
-                  )}
+      {/* Alarms List */}
+      {filteredAlarmes.length === 0 ? (
+        <EmptyState label="Aucune alarme dans cette catégorie." />
+      ) : (
+        <div className="space-y-3">
+          {filteredAlarmes.map(alarme => {
+            const site = sites.find(s => s.id === alarme.siteId);
+            const statut = getStatutLabel(alarme.statut);
+            const busy = busyId === alarme.id;
+            return (
+              <div key={alarme.id} className={`rounded-xl border-l-4 p-4 ${getPrioriteColor(alarme.priorite)}`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      alarme.statut === 'active' ? 'bg-red-100' :
+                      alarme.statut === 'en_traitement' ? 'bg-orange-100' :
+                      'bg-green-100'
+                    }`}>
+                      <Bell size={18} className={
+                        alarme.statut === 'active' ? 'text-red-600' :
+                        alarme.statut === 'en_traitement' ? 'text-orange-600' :
+                        'text-green-600'
+                      } />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-semibold text-slate-800">{alarme.type}</h4>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${statut.color}`}>
+                          {statut.text}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span>{site?.nom} — {alarme.zone}</span>
+                        <span>•</span>
+                        <span>{new Date(alarme.horodatage).toLocaleString('fr-FR', {
+                          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                        })}</span>
+                        {alarme.cameraAssociee && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Camera size={12} /> Caméra {alarme.cameraAssociee}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {alarme.leveeDoute && (
+                      <span className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-medium">
+                        <Eye size={12} /> Levée de doute OK
+                      </span>
+                    )}
+                    {busy ? (
+                      <Loader2 size={16} className="animate-spin text-blue-600" />
+                    ) : (
+                      <>
+                        {alarme.statut === 'active' && (
+                          <button
+                            onClick={() => handleStatut(alarme, 'en_traitement')}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700 transition"
+                          >
+                            Traiter
+                          </button>
+                        )}
+                        {(alarme.statut === 'active' || alarme.statut === 'en_traitement') && (
+                          <>
+                            <button
+                              onClick={() => handleStatut(alarme, 'levee', true)}
+                              className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition"
+                            >
+                              Levée de doute
+                            </button>
+                            {alarme.statut === 'en_traitement' && (
+                              <button
+                                onClick={() => handleStatut(alarme, 'fausse')}
+                                className="px-3 py-1.5 bg-slate-200 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-300 transition"
+                              >
+                                Fausse alarme
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Workflow info */}
       <div className="bg-blue-50 rounded-xl border border-blue-100 p-5">

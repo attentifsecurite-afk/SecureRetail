@@ -12,12 +12,30 @@ import {
   Eye
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
-import { kpiGlobaux, sites, alarmes, evenements, donneesIncidents7jours } from '../data/mockData';
+import { useData } from '../data/DataContext';
+import { Spinner, ErrorBanner, EmptyState } from './Shared';
+import { buildIncidentsSeries, buildRondesSeries, delaiMoyenAlarmes, formatDelai, safePct } from '../lib/metrics';
 
 export const Dashboard: React.FC = () => {
+  const { state, loading, error } = useData();
+  const { sites, agents, alarmes, cameras, evenements, rondes } = state;
+
   const alarmesActives = alarmes.filter(a => a.statut === 'active' || a.statut === 'en_traitement');
   const incidentsCritiques = evenements.filter(e => e.gravite === 'critique' && e.statut !== 'cloture');
+  const incidentsOuverts = evenements.filter(e => e.statut !== 'cloture');
+  const camerasOffline = cameras.filter(c => c.statut === 'offline');
+  const agentsEnService = agents.filter(a => a.statut === 'en_service');
   const topSitesRisque = [...sites].sort((a, b) => b.scoreRisque - a.scoreRisque).slice(0, 5);
+
+  const delaiMoyen = delaiMoyenAlarmes(alarmes);
+  const tauxConformite = safePct(rondes.filter(r => r.statut === 'terminee').length, rondes.length);
+
+  const donneesIncidents = buildIncidentsSeries(evenements, alarmes);
+  const donneesRondes = buildRondesSeries(rondes);
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorBanner message={error} />;
+  if (sites.length === 0) return <EmptyState label="Aucun site en base — ajoutez vos sites pour démarrer." />;
 
   return (
     <div className="space-y-6">
@@ -25,7 +43,7 @@ export const Dashboard: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Tour de contrôle sécurité</h1>
-          <p className="text-slate-500 text-sm">Supervision multi-sites — Paris & Grande Couronne</p>
+          <p className="text-slate-500 text-sm">Supervision multi-sites — données en direct</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-xs font-medium">
@@ -71,37 +89,37 @@ export const Dashboard: React.FC = () => {
         <KPICard
           icon={<Users size={20} />}
           label="Agents en service"
-          value={`${kpiGlobaux.agentsEnService}/${kpiGlobaux.totalAgents}`}
+          value={`${agentsEnService.length}/${agents.length}`}
           color="blue"
         />
         <KPICard
           icon={<AlertTriangle size={20} />}
           label="Alarmes actives"
-          value={kpiGlobaux.alarmesActives.toString()}
+          value={alarmesActives.length.toString()}
           color="red"
         />
         <KPICard
           icon={<ShieldAlert size={20} />}
           label="Incidents ouverts"
-          value={kpiGlobaux.incidentsOuverts.toString()}
+          value={incidentsOuverts.length.toString()}
           color="orange"
         />
         <KPICard
           icon={<Camera size={20} />}
           label="Caméras offline"
-          value={kpiGlobaux.camerasOffline.toString()}
+          value={camerasOffline.length.toString()}
           color="yellow"
         />
         <KPICard
           icon={<Clock size={20} />}
           label="Délai alarme"
-          value={kpiGlobaux.delaiMoyenAlarme}
+          value={delaiMoyen !== null ? formatDelai(delaiMoyen) : '—'}
           color="green"
         />
         <KPICard
           icon={<CheckCircle size={20} />}
           label="Conformité"
-          value={`${kpiGlobaux.tauxConformite}%`}
+          value={`${tauxConformite}%`}
           color="emerald"
         />
       </div>
@@ -115,7 +133,7 @@ export const Dashboard: React.FC = () => {
             <Activity size={16} className="text-slate-400" />
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={donneesIncidents7jours}>
+            <LineChart data={donneesIncidents}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="jour" tick={{ fontSize: 12 }} stroke="#94a3b8" />
               <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
@@ -133,7 +151,7 @@ export const Dashboard: React.FC = () => {
             <TrendingUp size={16} className="text-slate-400" />
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={donneesIncidents7jours}>
+            <BarChart data={donneesRondes}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="jour" tick={{ fontSize: 12 }} stroke="#94a3b8" />
               <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { MapPin, AlertTriangle, Camera, Users, Shield, Layers, TrendingUp, Activity, Eye, Navigation } from 'lucide-react';
-import { sites, alarmes, evenements, agents } from '../data/mockData';
+import { useData } from '../data/DataContext';
+import { Spinner, ErrorBanner } from './Shared';
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
@@ -21,6 +22,9 @@ const getCriticiteLabel = (criticite: string) => {
 };
 
 export const AdvancedMap: React.FC = () => {
+  const { state, loading, error } = useData();
+  const { sites, alarmes, agents, cameras } = state;
+
   const mapRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
   const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
@@ -33,7 +37,7 @@ export const AdvancedMap: React.FC = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const zones = [...new Set(sites.map(s => s.zone))];
+  const zones = useMemo(() => [...new Set(sites.map(s => s.zone))], [sites]);
 
   const filteredSites = useMemo(() => {
     return sites.filter(s => {
@@ -41,7 +45,7 @@ export const AdvancedMap: React.FC = () => {
       const matchesCriticite = filterCriticite === 'toutes' || s.criticite === filterCriticite;
       return matchesZone && matchesCriticite;
     });
-  }, [filterZone, filterCriticite]);
+  }, [sites, filterZone, filterCriticite]);
 
   // Charger Google Maps
   useEffect(() => {
@@ -158,7 +162,7 @@ export const AdvancedMap: React.FC = () => {
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
               <div style="background: #f8fafc; padding: 8px; border-radius: 4px;">
                 <div style="font-size: 11px; color: #94a3b8;">Caméras</div>
-                <div style="font-weight: bold;">${site.camerasOnline}/${site.cameras}</div>
+                <div style="font-weight: bold;">${cameras.filter(c => c.siteId === site.id && c.statut === 'online').length}/${cameras.filter(c => c.siteId === site.id).length}</div>
               </div>
               <div style="background: #f8fafc; padding: 8px; border-radius: 4px;">
                 <div style="font-size: 11px; color: #94a3b8;">Agents</div>
@@ -236,7 +240,7 @@ export const AdvancedMap: React.FC = () => {
       });
     }
 
-  }, [mapInstance, filteredSites, showCircles, showRoutes]);
+  }, [mapInstance, filteredSites, alarmes, agents, showCircles, showRoutes]);
 
   const handleSiteClick = (siteId: string) => {
     setSelectedSite(siteId);
@@ -246,6 +250,14 @@ export const AdvancedMap: React.FC = () => {
       mapInstance.setZoom(14);
     }
   };
+
+  if (loading) {
+    return <Spinner />;
+  }
+
+  if (error) {
+    return <ErrorBanner message={error} />;
+  }
 
   if (loadError) {
     return (
@@ -448,7 +460,7 @@ export const AdvancedMap: React.FC = () => {
         </div>
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-4 text-white">
           <p className="text-xs opacity-90 mb-1">Caméras totales</p>
-          <p className="text-3xl font-bold">{filteredSites.reduce((sum, s) => sum + s.cameras, 0)}</p>
+          <p className="text-3xl font-bold">{filteredSites.reduce((sum, s) => sum + cameras.filter(c => c.siteId === s.id).length, 0)}</p>
           <p className="text-xs opacity-75 mt-1">Sur {filteredSites.length} sites</p>
         </div>
         <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 text-white">
