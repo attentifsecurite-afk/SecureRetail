@@ -1,30 +1,82 @@
 import React from 'react';
 import { BarChart3, TrendingUp, Users, Shield, Clock, CheckCircle, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
-import { kpiGlobaux, sites, donneesIncidents7jours, donneesDecmarque } from '../data/mockData';
+import { useData } from '../data/DataContext';
+import { Spinner, ErrorBanner } from './Shared';
+import {
+  buildIncidentsSeries,
+  buildDITrend,
+  buildIncidentsParCategorie,
+  delaiMoyenAlarmes,
+  formatDelai,
+  minutesBetween,
+  safePct,
+} from '../lib/metrics';
+
+const CATEGORIE_COLORS: Record<string, string> = {
+  Intrusion: '#ef4444',
+  'EAS': '#f59e0b',
+  'Démarque': '#f59e0b',
+  'Incendie': '#8b5cf6',
+  'SSIAP': '#8b5cf6',
+  'Technique': '#3b82f6',
+  'Opérationnel': '#10b981',
+  'Sûreté': '#10b981',
+};
 
 export const Reporting: React.FC = () => {
+  const { state, loading, error } = useData();
+  const { sites, agents, evenements, alarmes, rondes, indicateurs } = state;
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorBanner message={error} />;
+
+  const agentsEnService = agents.filter(a => a.statut === 'en_service').length;
+  const rondesTerminees = rondes.filter(r => r.statut === 'terminee');
+  const tauxConformite = safePct(rondesTerminees.length, rondes.length);
+
+  const delaiMoyen = delaiMoyenAlarmes(alarmes);
+
   const dataConformite = [
-    { name: 'Conforme', value: kpiGlobaux.tauxConformite },
-    { name: 'Non conforme', value: 100 - kpiGlobaux.tauxConformite },
+    { name: 'Conforme', value: tauxConformite },
+    { name: 'Non conforme', value: 100 - tauxConformite },
   ];
 
-  const dataRepartition = [
-    { name: 'Intrusion', value: 23, color: '#ef4444' },
-    { name: 'EAS/Antivol', value: 45, color: '#f59e0b' },
-    { name: 'Incendie/SSIAP', value: 8, color: '#8b5cf6' },
-    { name: 'Technique', value: 31, color: '#3b82f6' },
-    { name: 'Opérationnel', value: 18, color: '#10b981' },
-  ];
+  const countsParCategorie = buildIncidentsParCategorie(evenements);
+  const dataRepartition = [...countsParCategorie.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, value]) => ({
+      name,
+      value,
+      color: CATEGORIE_COLORS[name] ?? '#64748b',
+    }));
+
+  const ponctuelles = rondesTerminees.filter(r => r.heureReelle && minutesBetween(r.heureReelle, r.heurePrevue) <= 10).length;
+  const alarmesTraitees = alarmes.filter(a => a.traiteeA);
+  const alarmesRapides = alarmesTraitees.filter(a =>
+    new Date(a.traiteeA!).getTime() - new Date(a.horodatage).getTime() <= 15 * 60 * 1000
+  ).length;
+  const cloturees = evenements.filter(e => e.statut === 'cloture' && e.clotureA);
+  const clotureRapides = cloturees.filter(e =>
+    new Date(e.clotureA!).getTime() - new Date(e.horodatage).getTime() <= 48 * 60 * 60 * 1000
+  ).length;
+  const ssiapEvents = evenements.filter(e => e.categorie === 'SSIAP');
+  const ssiapClotures = ssiapEvents.filter(e => e.statut === 'cloture');
 
   const dataPerformancePrestataire = [
-    { indicateur: 'Taux pourvoi', valeur: 87, objectif: 95 },
-    { indicateur: 'Ponctualité', valeur: 92, objectif: 95 },
-    { indicateur: 'Rondes réalisées', valeur: 88, objectif: 95 },
-    { indicateur: 'Délai alarme', valeur: 78, objectif: 90 },
-    { indicateur: 'Conformité SSIAP', valeur: 94, objectif: 100 },
-    { indicateur: 'Clôture < 48h', valeur: 72, objectif: 85 },
+    { indicateur: 'Taux pourvoi', valeur: safePct(agentsEnService, agents.length), objectif: 90 },
+    { indicateur: 'Ponctualité rondes', valeur: safePct(ponctuelles, rondesTerminees.length), objectif: 95 },
+    { indicateur: 'Rondes réalisées', valeur: tauxConformite, objectif: 95 },
+    { indicateur: 'Alarmes traitées < 15 min', valeur: safePct(alarmesRapides, alarmesTraitees.length), objectif: 90 },
+    { indicateur: 'Conformité SSIAP', valeur: safePct(ssiapClotures.length, ssiapEvents.length), objectif: 100 },
+    { indicateur: 'Clôture < 48h', valeur: safePct(clotureRapides, cloturees.length), objectif: 85 },
   ];
+
+  const incidents30j = evenements.filter(e => new Date(e.horodatage).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000).length;
+  const alarmes30j = alarmes.filter(a => new Date(a.horodatage).getTime() > Date.now() - 30 * 24 * 60 * 60 * 1000).length;
+
+  const donneesIncidents = buildIncidentsSeries(evenements, alarmes);
+  const donneesDecmarque = buildDITrend(indicateurs);
 
   return (
     <div className="space-y-6">
@@ -42,19 +94,19 @@ export const Reporting: React.FC = () => {
 
       {/* KPI Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
-        <MiniKPI label="Sites" value="10" icon={<Shield size={16} />} color="blue" />
-        <MiniKPI label="Agents" value="49" icon={<Users size={16} />} color="green" />
-        <MiniKPI label="Incidents/mois" value="71" icon={<BarChart3 size={16} />} color="orange" />
-        <MiniKPI label="Alarmes/mois" value="122" icon={<TrendingUp size={16} />} color="red" />
-        <MiniKPI label="Délai moy." value="4:32" icon={<Clock size={16} />} color="purple" />
-        <MiniKPI label="Conformité" value="87%" icon={<CheckCircle size={16} />} color="emerald" />
+        <MiniKPI label="Sites" value={sites.length.toString()} icon={<Shield size={16} />} color="blue" />
+        <MiniKPI label="Agents" value={agents.length.toString()} icon={<Users size={16} />} color="green" />
+        <MiniKPI label="Incidents/30j" value={incidents30j.toString()} icon={<BarChart3 size={16} />} color="orange" />
+        <MiniKPI label="Alarmes/30j" value={alarmes30j.toString()} icon={<TrendingUp size={16} />} color="red" />
+        <MiniKPI label="Délai moy." value={delaiMoyen !== null ? formatDelai(delaiMoyen) : '—'} icon={<Clock size={16} />} color="purple" />
+        <MiniKPI label="Conformité" value={`${tauxConformite}%`} icon={<CheckCircle size={16} />} color="emerald" />
       </div>
 
       {/* Main Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Performance prestataire */}
         <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="font-semibold text-slate-800 mb-4">Performance prestataire vs objectifs</h3>
+          <h3 className="font-semibold text-slate-800 mb-4">Performance exploitation vs objectifs</h3>
           <div className="space-y-4">
             {dataPerformancePrestataire.map((item, idx) => (
               <div key={idx}>
@@ -94,35 +146,39 @@ export const Reporting: React.FC = () => {
         {/* Répartition incidents */}
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h3 className="font-semibold text-slate-800 mb-4">Répartition des incidents</h3>
-          <div className="flex items-center gap-6">
-            <ResponsiveContainer width="50%" height={180}>
-              <PieChart>
-                <Pie
-                  data={dataRepartition}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={70}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {dataRepartition.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-2">
-              {dataRepartition.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-xs text-slate-600">{item.name}</span>
-                  <span className="text-xs font-bold text-slate-800">{item.value}</span>
-                </div>
-              ))}
+          {dataRepartition.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-8">Aucun incident enregistré.</p>
+          ) : (
+            <div className="flex items-center gap-6">
+              <ResponsiveContainer width="50%" height={180}>
+                <PieChart>
+                  <Pie
+                    data={dataRepartition}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={70}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {dataRepartition.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2">
+                {dataRepartition.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                    <span className="text-xs text-slate-600">{item.name}</span>
+                    <span className="text-xs font-bold text-slate-800">{item.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -132,7 +188,7 @@ export const Reporting: React.FC = () => {
         <div className="bg-white rounded-xl border border-slate-200 p-5">
           <h3 className="font-semibold text-slate-800 mb-4">Tendance incidents — 7 jours</h3>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={donneesIncidents7jours}>
+            <LineChart data={donneesIncidents}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="jour" tick={{ fontSize: 12 }} stroke="#94a3b8" />
               <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
@@ -186,12 +242,12 @@ export const Reporting: React.FC = () => {
         <h3 className="font-semibold text-slate-800 mb-4">Conformité & audit</h3>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div className="text-center p-4 bg-green-50 rounded-lg">
-            <p className="text-3xl font-bold text-green-700">{kpiGlobaux.tauxConformite}%</p>
-            <p className="text-xs text-green-600 mt-1">Conformité globale</p>
+            <p className="text-3xl font-bold text-green-700">{tauxConformite}%</p>
+            <p className="text-xs text-green-600 mt-1">Rondes réalisées</p>
           </div>
           <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <p className="text-3xl font-bold text-blue-700">100%</p>
-            <p className="text-xs text-blue-600 mt-1">Audit log actif</p>
+            <p className="text-3xl font-bold text-blue-700">{dataConformite[0].value > 0 ? '100%' : '—'}</p>
+            <p className="text-xs text-blue-600 mt-1">Journalisation active</p>
           </div>
           <div className="text-center p-4 bg-purple-50 rounded-lg">
             <p className="text-3xl font-bold text-purple-700">30j</p>

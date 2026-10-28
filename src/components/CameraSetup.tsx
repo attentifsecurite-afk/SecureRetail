@@ -1,32 +1,11 @@
 import React, { useState } from 'react';
 import {
   Camera, Plus, Wifi, WifiOff, Settings, Trash2, Eye, EyeOff,
-  RefreshCw, CheckCircle, XCircle, AlertCircle, Globe, Lock,
-  Monitor, Server, Zap, Filter, Search, Edit2, Save, X
+  RefreshCw, AlertCircle, Globe, Lock, Monitor, Server, Search, Edit2, Save, Loader2
 } from 'lucide-react';
-import { sites } from '../data/mockData';
-
-// ─── Types ────────────────────────────────────────────
-interface CameraConfig {
-  id: string;
-  name: string;
-  siteId: string;
-  location: string;
-  brand: string;
-  model: string;
-  protocol: 'onvif' | 'rtsp' | 'http' | 'https';
-  ipAddress: string;
-  port: number;
-  username: string;
-  password: string;
-  streamPath: string;
-  status: 'online' | 'offline' | 'error' | 'testing';
-  resolution: string;
-  fps: number;
-  enabled: boolean;
-  lastSeen?: string;
-  firmware?: string;
-}
+import { useData } from '../data/DataContext';
+import { Modal, FormField, inputClass, Spinner, ErrorBanner } from './Shared';
+import type { Camera as CameraType } from '../types';
 
 interface BrandPreset {
   brand: string;
@@ -36,7 +15,6 @@ interface BrandPreset {
   onvifSupport: boolean;
 }
 
-// ─── Presets par marque ───────────────────────────────
 const BRAND_PRESETS: Record<string, BrandPreset> = {
   'Hikvision': {
     brand: 'Hikvision',
@@ -114,184 +92,334 @@ const BRAND_PRESETS: Record<string, BrandPreset> = {
   },
 };
 
-// ─── Caméras mockées ──────────────────────────────────
-const initialCameras: CameraConfig[] = [
-  {
-    id: 'CAM-001',
-    name: 'Entrée principale',
-    siteId: 'S001',
-    location: 'Hall entrée',
-    brand: 'Hikvision',
-    model: 'DS-2CD2143G2-I',
-    protocol: 'onvif',
-    ipAddress: '192.168.1.101',
-    port: 80,
-    username: 'admin',
-    password: '••••••••',
-    streamPath: '/Streaming/Channels/101',
-    status: 'online',
-    resolution: '2688x1520',
-    fps: 25,
-    enabled: true,
-    lastSeen: '2026-01-15T14:30:00',
-    firmware: 'V5.7.1',
-  },
-  {
-    id: 'CAM-002',
-    name: 'Rayon électronique',
-    siteId: 'S001',
-    location: 'Surface de vente',
-    brand: 'Dahua',
-    model: 'IPC-HFW2431S',
-    protocol: 'rtsp',
-    ipAddress: '192.168.1.102',
-    port: 554,
-    username: 'admin',
-    password: '••••••••',
-    streamPath: '/cam/realmonitor?channel=1&subtype=0',
-    status: 'online',
-    resolution: '1920x1080',
-    fps: 30,
-    enabled: true,
-    lastSeen: '2026-01-15T14:30:00',
-    firmware: '2.800.0',
-  },
-  {
-    id: 'CAM-003',
-    name: 'Parking P2',
-    siteId: 'S001',
-    location: 'Parking sous-sol',
-    brand: 'Hikvision',
-    model: 'DS-2CD2T87G2-L',
-    protocol: 'onvif',
-    ipAddress: '192.168.1.103',
-    port: 80,
-    username: 'admin',
-    password: '••••••••',
-    streamPath: '/Streaming/Channels/101',
-    status: 'offline',
-    resolution: '3840x2160',
-    fps: 20,
-    enabled: false,
-    lastSeen: '2026-01-15T08:30:00',
-    firmware: 'V5.7.11',
-  },
-];
+const PROTOCOLES: Array<CameraType['protocole']> = ['onvif', 'rtsp', 'http', 'https'];
 
-// ─── Component ────────────────────────────────────────
+interface FormState {
+  nom: string;
+  siteId: string;
+  zone: string;
+  emplacement: string;
+  fabricant: string;
+  modele: string;
+  protocole: CameraType['protocole'];
+  ip: string;
+  port: number;
+  utilisateur: string;
+  motDePasse: string;
+  cheminFlux: string;
+  resolution: string;
+  fps: number;
+  actif: boolean;
+}
+
+const emptyForm = (siteId: string): FormState => ({
+  nom: '',
+  siteId,
+  zone: '',
+  emplacement: '',
+  fabricant: 'Hikvision',
+  modele: '',
+  protocole: 'onvif',
+  ip: '',
+  port: 80,
+  utilisateur: 'admin',
+  motDePasse: '',
+  cheminFlux: '/Streaming/Channels/101',
+  resolution: '1920x1080',
+  fps: 25,
+  actif: true,
+});
+
 export const CameraSetup: React.FC = () => {
-  const [cameras, setCameras] = useState<CameraConfig[]>(initialCameras);
+  const { state, loading, error, create, update, remove, testCamera } = useData();
+  const { cameras, sites } = state;
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingCamera, setEditingCamera] = useState<string | null>(null);
+  const [editingCamera, setEditingCamera] = useState<CameraType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBrand, setFilterBrand] = useState<string>('toutes');
   const [filterStatus, setFilterStatus] = useState<string>('tous');
-  const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
-
-  const [newCamera, setNewCamera] = useState<Partial<CameraConfig>>({
-    name: '',
-    siteId: 'S001',
-    location: '',
-    brand: 'Hikvision',
-    model: '',
-    protocol: 'onvif',
-    ipAddress: '',
-    port: 554,
-    username: 'admin',
-    password: '',
-    streamPath: '',
-    resolution: '1920x1080',
-    fps: 25,
-    enabled: true,
-  });
+  const [showPasswordForm, setShowPasswordForm] = useState<Record<string, boolean>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { ok: boolean; message: string }>>({});
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [form, setForm] = useState<FormState>(emptyForm(sites[0]?.id ?? ''));
 
   const filteredCameras = cameras.filter(cam => {
     const matchesSearch = searchTerm === '' ||
-      cam.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cam.ipAddress.includes(searchTerm) ||
-      cam.model.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesBrand = filterBrand === 'toutes' || cam.brand === filterBrand;
-    const matchesStatus = filterStatus === 'tous' || cam.status === filterStatus;
+      cam.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cam.ip.includes(searchTerm) ||
+      cam.modele.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesBrand = filterBrand === 'toutes' || cam.fabricant === filterBrand;
+    const matchesStatus = filterStatus === 'tous' || cam.statut === filterStatus;
     return matchesSearch && matchesBrand && matchesStatus;
   });
 
   const stats = {
     total: cameras.length,
-    online: cameras.filter(c => c.status === 'online').length,
-    offline: cameras.filter(c => c.status === 'offline').length,
-    error: cameras.filter(c => c.status === 'error').length,
+    online: cameras.filter(c => c.statut === 'online').length,
+    offline: cameras.filter(c => c.statut === 'offline').length,
+    maintenance: cameras.filter(c => c.statut === 'maintenance').length,
   };
 
-  const handleAddCamera = () => {
-    const cam: CameraConfig = {
-      id: `CAM-${String(cameras.length + 1).padStart(3, '0')}`,
-      name: newCamera.name || 'Nouvelle caméra',
-      siteId: newCamera.siteId || 'S001',
-      location: newCamera.location || '',
-      brand: newCamera.brand || 'Hikvision',
-      model: newCamera.model || '',
-      protocol: newCamera.protocol || 'onvif',
-      ipAddress: newCamera.ipAddress || '',
-      port: newCamera.port || 554,
-      username: newCamera.username || 'admin',
-      password: newCamera.password || '',
-      streamPath: newCamera.streamPath || BRAND_PRESETS[newCamera.brand || 'Hikvision'].defaultStreamPath,
-      status: 'testing',
-      resolution: newCamera.resolution || '1920x1080',
-      fps: newCamera.fps || 25,
-      enabled: newCamera.enabled ?? true,
-      lastSeen: new Date().toISOString(),
-    };
-    setCameras([...cameras, cam]);
-    setShowAddForm(false);
-    setNewCamera({
-      name: '',
-      siteId: 'S001',
-      location: '',
-      brand: 'Hikvision',
-      model: '',
-      protocol: 'onvif',
-      ipAddress: '',
-      port: 554,
-      username: 'admin',
-      password: '',
-      streamPath: '',
-      resolution: '1920x1080',
-      fps: 25,
-      enabled: true,
+  const openAddForm = () => {
+    setForm(emptyForm(sites[0]?.id ?? ''));
+    setFormError(null);
+    setShowAddForm(true);
+  };
+
+  const openEditForm = (cam: CameraType) => {
+    setForm({
+      nom: cam.nom,
+      siteId: cam.siteId,
+      zone: cam.zone,
+      emplacement: cam.emplacement,
+      fabricant: cam.fabricant || 'Autre',
+      modele: cam.modele,
+      protocole: cam.protocole as CameraType['protocole'],
+      ip: cam.ip,
+      port: cam.port,
+      utilisateur: cam.utilisateur,
+      motDePasse: '',
+      cheminFlux: cam.cheminFlux,
+      resolution: cam.resolution,
+      fps: cam.fps,
+      actif: cam.actif,
+    });
+    setFormError(null);
+    setEditingCamera(cam);
+  };
+
+  const handleBrandChange = (brand: string) => {
+    const preset = BRAND_PRESETS[brand];
+    setForm({
+      ...form,
+      fabricant: brand,
+      port: preset ? preset.defaultPort : form.port,
+      cheminFlux: preset ? preset.defaultStreamPath : form.cheminFlux,
+      protocole: preset && preset.onvifSupport ? 'onvif' : 'rtsp',
     });
   };
 
-  const handleDeleteCamera = (id: string) => {
-    setCameras(cameras.filter(c => c.id !== id));
+  const handleSubmit = async () => {
+    if (!form.nom.trim()) {
+      setFormError('Le nom de la caméra est obligatoire');
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      if (editingCamera) {
+        const patch: Record<string, unknown> = { ...form };
+        if (!form.motDePasse) delete patch.motDePasse;
+        await update('cameras', editingCamera.id, patch);
+        setEditingCamera(null);
+      } else {
+        await create('cameras', { ...form, statut: 'offline' });
+        setShowAddForm(false);
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Erreur lors de l\'enregistrement');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleTestConnection = (id: string) => {
-    setCameras(cameras.map(c =>
-      c.id === id ? { ...c, status: 'testing' as const } : c
-    ));
-    // Simulate test
-    setTimeout(() => {
-      setCameras(cameras.map(c =>
-        c.id === id ? { ...c, status: Math.random() > 0.3 ? 'online' as const : 'error' as const } : c
-      ));
-    }, 2000);
+  const handleDeleteCamera = async (id: string) => {
+    setBusyId(id);
+    try {
+      await remove('cameras', id);
+    } catch {
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const togglePassword = (id: string) => {
-    setShowPassword(prev => ({ ...prev, [id]: !prev[id] }));
+  const handleTestConnection = async (id: string) => {
+    setBusyId(id);
+    try {
+      const result = await testCamera(id);
+      setTestResults(prev => ({ ...prev, [id]: { ok: result.ok, message: result.message } }));
+    } catch (err) {
+      setTestResults(prev => ({
+        ...prev,
+        [id]: { ok: false, message: err instanceof Error ? err.message : 'Test impossible' },
+      }));
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const generateStreamUrl = (cam: CameraConfig) => {
-    const preset = BRAND_PRESETS[cam.brand];
+  const togglePasswordForm = (id: string) => {
+    setShowPasswordForm(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const generateStreamUrl = (cam: CameraType) => {
+    const preset = BRAND_PRESETS[cam.fabricant];
     if (!preset) return '';
     const format = preset.rtspFormats[0];
     return format
-      .replace('{user}', cam.username)
+      .replace('{user}', cam.utilisateur)
       .replace('{pass}', '********')
-      .replace('{ip}', cam.ipAddress)
+      .replace('{ip}', cam.ip)
       .replace('{port}', cam.port.toString());
   };
+
+  const renderFormFields = () => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <FormField label="Nom" required>
+        <input
+          type="text"
+          value={form.nom}
+          onChange={(e) => setForm({ ...form, nom: e.target.value })}
+          placeholder="Ex : Entrée principale"
+          className={inputClass}
+        />
+      </FormField>
+      <FormField label="Site">
+        <select
+          value={form.siteId}
+          onChange={(e) => setForm({ ...form, siteId: e.target.value })}
+          className={inputClass}
+        >
+          {sites.map(site => (
+            <option key={site.id} value={site.id}>{site.nom}</option>
+          ))}
+        </select>
+      </FormField>
+      <FormField label="Zone">
+        <input
+          type="text"
+          value={form.zone}
+          onChange={(e) => setForm({ ...form, zone: e.target.value })}
+          placeholder="Ex : Entrée"
+          className={inputClass}
+        />
+      </FormField>
+      <FormField label="Emplacement">
+        <input
+          type="text"
+          value={form.emplacement}
+          onChange={(e) => setForm({ ...form, emplacement: e.target.value })}
+          placeholder="Ex : Hall entrée"
+          className={inputClass}
+        />
+      </FormField>
+      <FormField label="Marque">
+        <select
+          value={form.fabricant}
+          onChange={(e) => handleBrandChange(e.target.value)}
+          className={inputClass}
+        >
+          {Object.keys(BRAND_PRESETS).map(brand => (
+            <option key={brand} value={brand}>{brand}</option>
+          ))}
+        </select>
+      </FormField>
+      <FormField label="Modèle">
+        <input
+          type="text"
+          value={form.modele}
+          onChange={(e) => setForm({ ...form, modele: e.target.value })}
+          placeholder="Ex : DS-2CD2143G2-I"
+          className={inputClass}
+        />
+      </FormField>
+      <FormField label="Protocole">
+        <select
+          value={form.protocole}
+          onChange={(e) => setForm({ ...form, protocole: e.target.value as CameraType['protocole'] })}
+          className={inputClass}
+        >
+          {PROTOCOLES.map(p => <option key={p} value={p}>{p.toUpperCase()}</option>)}
+        </select>
+      </FormField>
+      <FormField label="Adresse IP">
+        <input
+          type="text"
+          value={form.ip}
+          onChange={(e) => setForm({ ...form, ip: e.target.value })}
+          placeholder="192.168.1.100"
+          className={inputClass}
+        />
+      </FormField>
+      <FormField label="Port">
+        <input
+          type="number"
+          value={form.port}
+          onChange={(e) => setForm({ ...form, port: parseInt(e.target.value) || 554 })}
+          className={inputClass}
+        />
+      </FormField>
+      <FormField label="Utilisateur">
+        <input
+          type="text"
+          value={form.utilisateur}
+          onChange={(e) => setForm({ ...form, utilisateur: e.target.value })}
+          className={inputClass}
+        />
+      </FormField>
+      <FormField label={editingCamera ? 'Mot de passe (vide = inchangé)' : 'Mot de passe'}>
+        <div className="relative">
+          <input
+            type={showPasswordForm[editingCamera?.id ?? 'new'] ? 'text' : 'password'}
+            value={form.motDePasse}
+            onChange={(e) => setForm({ ...form, motDePasse: e.target.value })}
+            className={`${inputClass} pr-10`}
+          />
+          <button
+            type="button"
+            onClick={() => togglePasswordForm(editingCamera?.id ?? 'new')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          >
+            {showPasswordForm[editingCamera?.id ?? 'new'] ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        </div>
+      </FormField>
+      <FormField label="Résolution">
+        <input
+          type="text"
+          value={form.resolution}
+          onChange={(e) => setForm({ ...form, resolution: e.target.value })}
+          placeholder="1920x1080"
+          className={inputClass}
+        />
+      </FormField>
+      <FormField label="FPS">
+        <input
+          type="number"
+          value={form.fps}
+          onChange={(e) => setForm({ ...form, fps: parseInt(e.target.value) || 25 })}
+          className={inputClass}
+        />
+      </FormField>
+      <FormField label="Caméra active">
+        <button
+          type="button"
+          onClick={() => setForm({ ...form, actif: !form.actif })}
+          className={`px-3 py-2 rounded-lg text-xs font-medium transition ${
+            form.actif ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-slate-100 text-slate-600'
+          }`}
+        >
+          {form.actif ? 'Activée' : 'Désactivée'}
+        </button>
+      </FormField>
+      <FormField label="Chemin du flux" full>
+        <input
+          type="text"
+          value={form.cheminFlux}
+          onChange={(e) => setForm({ ...form, cheminFlux: e.target.value })}
+          className={`${inputClass} font-mono`}
+        />
+        <p className="text-xs text-slate-400 mt-1">
+          Auto-rempli selon la marque. Modifiable si nécessaire.
+        </p>
+      </FormField>
+    </div>
+  );
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorBanner message={error} />;
 
   return (
     <div className="space-y-6">
@@ -307,7 +435,7 @@ export const CameraSetup: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => setShowAddForm(true)}
+          onClick={openAddForm}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
         >
           <Plus size={16} />
@@ -338,12 +466,12 @@ export const CameraSetup: React.FC = () => {
           </div>
           <p className="text-2xl font-bold text-red-700">{stats.offline}</p>
         </div>
-        <div className="bg-orange-50 rounded-xl border border-orange-100 p-4">
+        <div className="bg-yellow-50 rounded-xl border border-yellow-100 p-4">
           <div className="flex items-center gap-2 mb-2">
-            <AlertCircle size={18} className="text-orange-600" />
-            <span className="text-xs text-orange-600 font-medium">Erreur</span>
+            <Settings size={18} className="text-yellow-600" />
+            <span className="text-xs text-yellow-600 font-medium">Maintenance</span>
           </div>
-          <p className="text-2xl font-bold text-orange-700">{stats.error}</p>
+          <p className="text-2xl font-bold text-yellow-700">{stats.maintenance}</p>
         </div>
       </div>
 
@@ -378,294 +506,172 @@ export const CameraSetup: React.FC = () => {
             <option value="tous">Tous les statuts</option>
             <option value="online">En ligne</option>
             <option value="offline">Hors ligne</option>
-            <option value="error">Erreur</option>
+            <option value="maintenance">Maintenance</option>
           </select>
         </div>
       </div>
 
-      {/* Add Camera Form */}
-      {showAddForm && (
-        <div className="bg-white rounded-xl border border-blue-200 p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-800 flex items-center gap-2">
-              <Plus size={18} className="text-blue-600" />
-              Nouvelle caméra
-            </h3>
-            <button onClick={() => setShowAddForm(false)} className="text-slate-400 hover:text-slate-600">
-              <X size={20} />
-            </button>
-          </div>
+      {/* Cameras List */}
+      {filteredCameras.length === 0 ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-10 text-center">
+          <p className="text-slate-400 text-sm">Aucune caméra enregistrée — ajoutez la première.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredCameras.map(cam => {
+            const site = sites.find(s => s.id === cam.siteId);
+            const streamUrl = generateStreamUrl(cam);
+            const test = testResults[cam.id];
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Nom *</label>
-              <input
-                type="text"
-                value={newCamera.name}
-                onChange={(e) => setNewCamera({ ...newCamera, name: e.target.value })}
-                placeholder="Ex: Entrée principale"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Site *</label>
-              <select
-                value={newCamera.siteId}
-                onChange={(e) => setNewCamera({ ...newCamera, siteId: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {sites.map(site => (
-                  <option key={site.id} value={site.id}>{site.nom}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Emplacement</label>
-              <input
-                type="text"
-                value={newCamera.location}
-                onChange={(e) => setNewCamera({ ...newCamera, location: e.target.value })}
-                placeholder="Ex: Hall entrée"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Marque *</label>
-              <select
-                value={newCamera.brand}
-                onChange={(e) => {
-                  const brand = e.target.value;
-                  setNewCamera({
-                    ...newCamera,
-                    brand,
-                    port: BRAND_PRESETS[brand].defaultPort,
-                    streamPath: BRAND_PRESETS[brand].defaultStreamPath,
-                    protocol: BRAND_PRESETS[brand].onvifSupport ? 'onvif' : 'rtsp',
-                  });
-                }}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {Object.keys(BRAND_PRESETS).map(brand => (
-                  <option key={brand} value={brand}>{brand}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Modèle</label>
-              <input
-                type="text"
-                value={newCamera.model}
-                onChange={(e) => setNewCamera({ ...newCamera, model: e.target.value })}
-                placeholder="Ex: DS-2CD2143G2-I"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Protocole *</label>
-              <select
-                value={newCamera.protocol}
-                onChange={(e) => setNewCamera({ ...newCamera, protocol: e.target.value as any })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="onvif">ONVIF</option>
-                <option value="rtsp">RTSP</option>
-                <option value="http">HTTP</option>
-                <option value="https">HTTPS</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Adresse IP *</label>
-              <input
-                type="text"
-                value={newCamera.ipAddress}
-                onChange={(e) => setNewCamera({ ...newCamera, ipAddress: e.target.value })}
-                placeholder="192.168.1.100"
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Port *</label>
-              <input
-                type="number"
-                value={newCamera.port}
-                onChange={(e) => setNewCamera({ ...newCamera, port: parseInt(e.target.value) })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Utilisateur *</label>
-              <input
-                type="text"
-                value={newCamera.username}
-                onChange={(e) => setNewCamera({ ...newCamera, username: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Mot de passe *</label>
-              <input
-                type="password"
-                value={newCamera.password}
-                onChange={(e) => setNewCamera({ ...newCamera, password: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-slate-600 mb-1">Chemin du flux</label>
-              <input
-                type="text"
-                value={newCamera.streamPath}
-                onChange={(e) => setNewCamera({ ...newCamera, streamPath: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-slate-400 mt-1">
-                Auto-rempli selon la marque. Modifiable si nécessaire.
-              </p>
-            </div>
-          </div>
+            return (
+              <div key={cam.id} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  {/* Status Icon */}
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    cam.statut === 'online' ? 'bg-green-100' :
+                    cam.statut === 'offline' ? 'bg-red-100' :
+                    'bg-yellow-100'
+                  }`}>
+                    {busyId === cam.id ? (
+                      <Loader2 size={20} className="text-blue-600 animate-spin" />
+                    ) : cam.statut === 'online' ? (
+                      <Wifi size={20} className="text-green-600" />
+                    ) : cam.statut === 'offline' ? (
+                      <WifiOff size={20} className="text-red-600" />
+                    ) : (
+                      <AlertCircle size={20} className="text-yellow-600" />
+                    )}
+                  </div>
 
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-slate-800">{cam.nom}</h3>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        cam.statut === 'online' ? 'bg-green-100 text-green-700' :
+                        cam.statut === 'offline' ? 'bg-red-100 text-red-700' :
+                        'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {cam.statut === 'online' ? 'En ligne' :
+                          cam.statut === 'offline' ? 'Hors ligne' : 'Maintenance'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-600 mb-3">
+                      <div>
+                        <span className="text-slate-400">Marque</span>
+                        <p className="font-medium">{cam.fabricant}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Modèle</span>
+                        <p className="font-medium">{cam.modele || '—'}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">IP</span>
+                        <p className="font-mono">{cam.ip}:{cam.port}</p>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Protocole</span>
+                        <p className="font-medium uppercase">{cam.protocole}</p>
+                      </div>
+                    </div>
+
+                    {/* Stream URL */}
+                    <div className="bg-slate-50 rounded-lg p-2 mb-2">
+                      <p className="text-xs text-slate-400 mb-1">URL du flux RTSP</p>
+                      <p className="text-xs font-mono text-slate-700 break-all">{streamUrl}</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                      <span className="flex items-center gap-1">
+                        <Monitor size={12} /> {cam.resolution}
+                      </span>
+                      <span>•</span>
+                      <span>{cam.fps} FPS</span>
+                      <span>•</span>
+                      <span>{site?.nom}</span>
+                      {cam.derniereConnexion && (
+                        <>
+                          <span>•</span>
+                          <span>Dernière connexion : {new Date(cam.derniereConnexion).toLocaleString('fr-FR', {
+                            day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                          })}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {test && (
+                      <p className={`text-xs mt-2 ${test.ok ? 'text-green-600' : 'text-red-500'}`}>
+                        Sonde : {test.message} (caméra marquée « {test.ok ? 'en ligne' : 'hors ligne'} »)
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleTestConnection(cam.id)}
+                      disabled={busyId === cam.id}
+                      className="p-2 hover:bg-slate-100 rounded-lg transition disabled:opacity-50"
+                      title="Tester la connexion"
+                    >
+                      <RefreshCw size={16} className={`text-blue-600 ${busyId === cam.id ? 'animate-spin' : ''}`} />
+                    </button>
+                    <span
+                      className="p-2"
+                      title={cam.aMotDePasse ? 'Mot de passe enregistré' : 'Aucun mot de passe'}
+                    >
+                      {cam.aMotDePasse ? <Lock size={16} className="text-green-600" /> : <Eye size={16} className="text-slate-400" />}
+                    </span>
+                    <button
+                      onClick={() => openEditForm(cam)}
+                      className="p-2 hover:bg-slate-100 rounded-lg transition"
+                      title="Modifier"
+                    >
+                      <Edit2 size={16} className="text-slate-600" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteCamera(cam.id)}
+                      disabled={busyId === cam.id}
+                      className="p-2 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+                      title="Supprimer"
+                    >
+                      <Trash2 size={16} className="text-red-600" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add/Edit Form */}
+      {(showAddForm || editingCamera) && (
+        <Modal
+          title={editingCamera ? `Modifier — ${editingCamera.nom}` : 'Nouvelle caméra'}
+          onClose={() => { setShowAddForm(false); setEditingCamera(null); }}
+        >
+          {renderFormFields()}
+          {formError && <p className="text-xs text-red-600 mt-3">{formError}</p>}
           <div className="flex items-center justify-end gap-3 mt-6">
             <button
-              onClick={() => setShowAddForm(false)}
+              onClick={() => { setShowAddForm(false); setEditingCamera(null); }}
               className="px-4 py-2 text-slate-600 hover:text-slate-800 text-sm font-medium"
             >
               Annuler
             </button>
             <button
-              onClick={handleAddCamera}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium"
+              onClick={handleSubmit}
+              disabled={saving}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium disabled:opacity-60"
             >
-              <Save size={16} />
+              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Enregistrer
             </button>
           </div>
-        </div>
+        </Modal>
       )}
-
-      {/* Cameras List */}
-      <div className="space-y-3">
-        {filteredCameras.map(cam => {
-          const site = sites.find(s => s.id === cam.siteId);
-          const streamUrl = generateStreamUrl(cam);
-
-          return (
-            <div key={cam.id} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition">
-              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                {/* Status Icon */}
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                  cam.status === 'online' ? 'bg-green-100' :
-                  cam.status === 'offline' ? 'bg-red-100' :
-                  cam.status === 'error' ? 'bg-orange-100' :
-                  'bg-blue-100'
-                }`}>
-                  {cam.status === 'testing' ? (
-                    <RefreshCw size={20} className="text-blue-600 animate-spin" />
-                  ) : cam.status === 'online' ? (
-                    <Wifi size={20} className="text-green-600" />
-                  ) : cam.status === 'offline' ? (
-                    <WifiOff size={20} className="text-red-600" />
-                  ) : (
-                    <AlertCircle size={20} className="text-orange-600" />
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-slate-800">{cam.name}</h3>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      cam.status === 'online' ? 'bg-green-100 text-green-700' :
-                      cam.status === 'offline' ? 'bg-red-100 text-red-700' :
-                      cam.status === 'error' ? 'bg-orange-100 text-orange-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      {cam.status === 'online' ? 'En ligne' :
-                       cam.status === 'offline' ? 'Hors ligne' :
-                       cam.status === 'error' ? 'Erreur' : 'Test...'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-slate-600 mb-3">
-                    <div>
-                      <span className="text-slate-400">Marque</span>
-                      <p className="font-medium">{cam.brand}</p>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Modèle</span>
-                      <p className="font-medium">{cam.model || '—'}</p>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">IP</span>
-                      <p className="font-mono">{cam.ipAddress}:{cam.port}</p>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Protocole</span>
-                      <p className="font-medium uppercase">{cam.protocol}</p>
-                    </div>
-                  </div>
-
-                  {/* Stream URL */}
-                  <div className="bg-slate-50 rounded-lg p-2 mb-2">
-                    <p className="text-xs text-slate-400 mb-1">URL du flux RTSP</p>
-                    <p className="text-xs font-mono text-slate-700 break-all">{streamUrl}</p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Monitor size={12} /> {cam.resolution}
-                    </span>
-                    <span>•</span>
-                    <span>{cam.fps} FPS</span>
-                    <span>•</span>
-                    <span>{site?.nom}</span>
-                    {cam.lastSeen && (
-                      <>
-                        <span>•</span>
-                        <span>Dernière connexion : {new Date(cam.lastSeen).toLocaleString('fr-FR', {
-                          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                        })}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleTestConnection(cam.id)}
-                    disabled={cam.status === 'testing'}
-                    className="p-2 hover:bg-slate-100 rounded-lg transition"
-                    title="Tester la connexion"
-                  >
-                    <RefreshCw size={16} className={`text-blue-600 ${cam.status === 'testing' ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button
-                    onClick={() => togglePassword(cam.id)}
-                    className="p-2 hover:bg-slate-100 rounded-lg transition"
-                    title={showPassword[cam.id] ? 'Masquer' : 'Afficher'}
-                  >
-                    {showPassword[cam.id] ? <EyeOff size={16} className="text-slate-600" /> : <Eye size={16} className="text-slate-600" />}
-                  </button>
-                  <button
-                    onClick={() => setEditingCamera(cam.id)}
-                    className="p-2 hover:bg-slate-100 rounded-lg transition"
-                    title="Modifier"
-                  >
-                    <Edit2 size={16} className="text-slate-600" />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteCamera(cam.id)}
-                    className="p-2 hover:bg-red-50 rounded-lg transition"
-                    title="Supprimer"
-                  >
-                    <Trash2 size={16} className="text-red-600" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
 
       {/* ONVIF Info */}
       <div className="bg-blue-50 rounded-xl border border-blue-200 p-5">
@@ -690,7 +696,7 @@ export const CameraSetup: React.FC = () => {
               <li>✓ Hikvision (DS-2CD, iDS-2CD)</li>
               <li>✓ Dahua (IPC-HFW, IPC-HDW)</li>
               <li>✓ Axis (P, Q, M series)</li>
-              <li>✓ Hanwha ( Wisenet)</li>
+              <li>✓ Hanwha (Wisenet)</li>
               <li>✓ Bosch, Milestone, et autres</li>
             </ul>
           </div>

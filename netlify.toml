@@ -1,0 +1,18 @@
+[build]
+  # The app lives at the repository root. This overrides the Base directory
+  # set in the Netlify UI, which pointed to a folder that does not exist.
+  base = "/"
+  # Install dependencies first so build tools like vite are always available
+  command = "npm install && npm run build"
+  publish = "dist"
+
+# Single-page app: serve index.html for client-side routes (react-router)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[dev]
+  framework = "#custom"
+  command = "npm run dev"
+  targetPort = 3000

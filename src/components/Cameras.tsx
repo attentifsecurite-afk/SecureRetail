@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { Camera, Video, Wifi, WifiOff, Wrench, Eye, MapPin } from 'lucide-react';
-import { cameras, sites } from '../data/mockData';
+import { Video, Wifi, WifiOff, Wrench, Eye, MapPin } from 'lucide-react';
+import { useData } from '../data/DataContext';
+import { Spinner, ErrorBanner, EmptyState } from './Shared';
+import { safePct } from '../lib/metrics';
 
 export const Cameras: React.FC = () => {
+  const { state, loading, error } = useData();
+  const { cameras, sites } = state;
   const [filter, setFilter] = useState<string>('tous');
   const [selectedSite, setSelectedSite] = useState<string>('tous');
 
@@ -18,6 +22,9 @@ export const Cameras: React.FC = () => {
     offline: cameras.filter(c => c.statut === 'offline').length,
     maintenance: cameras.filter(c => c.statut === 'maintenance').length,
   };
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorBanner message={error} />;
 
   return (
     <div className="space-y-6">
@@ -42,7 +49,7 @@ export const Cameras: React.FC = () => {
             <span className="text-xs text-green-600 font-medium">En ligne</span>
           </div>
           <p className="text-2xl font-bold text-green-700">{stats.online}</p>
-          <p className="text-xs text-green-500">{Math.round((stats.online / stats.total) * 100)}% disponibilité</p>
+          <p className="text-xs text-green-500">{safePct(stats.online, stats.total)}% disponibilité</p>
         </div>
         <div className="bg-red-50 rounded-xl border border-red-100 p-4">
           <div className="flex items-center gap-2 mb-2">
@@ -63,10 +70,10 @@ export const Cameras: React.FC = () => {
         <div className="bg-blue-50 rounded-xl border border-blue-100 p-4">
           <div className="flex items-center gap-2 mb-2">
             <Eye size={18} className="text-blue-600" />
-            <span className="text-xs text-blue-600 font-medium">Consultations</span>
+            <span className="text-xs text-blue-600 font-medium">Parc total</span>
           </div>
-          <p className="text-2xl font-bold text-blue-700">47</p>
-          <p className="text-xs text-blue-500">Aujourd'hui (auditées)</p>
+          <p className="text-2xl font-bold text-blue-700">{stats.total}</p>
+          <p className="text-xs text-blue-500">Caméras inventoriées</p>
         </div>
       </div>
 
@@ -100,69 +107,73 @@ export const Cameras: React.FC = () => {
       </div>
 
       {/* Camera Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredCameras.map(camera => {
-          const site = sites.find(s => s.id === camera.siteId);
-          return (
-            <div key={camera.id} className={`bg-white rounded-xl border p-4 transition hover:shadow-md ${
-              camera.statut === 'online' ? 'border-green-200' :
-              camera.statut === 'offline' ? 'border-red-200' :
-              'border-yellow-200'
-            }`}>
-              {/* Camera Preview Placeholder */}
-              <div className={`w-full h-32 rounded-lg mb-3 flex items-center justify-center ${
-                camera.statut === 'online' ? 'bg-slate-800' :
-                camera.statut === 'offline' ? 'bg-slate-200' :
-                'bg-yellow-100'
+      {filteredCameras.length === 0 ? (
+        <EmptyState label="Aucune caméra — ajoutez-les depuis « Installation caméras »." />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredCameras.map(camera => {
+            const site = sites.find(s => s.id === camera.siteId);
+            return (
+              <div key={camera.id} className={`bg-white rounded-xl border p-4 transition hover:shadow-md ${
+                camera.statut === 'online' ? 'border-green-200' :
+                camera.statut === 'offline' ? 'border-red-200' :
+                'border-yellow-200'
               }`}>
-                {camera.statut === 'online' ? (
-                  <div className="text-center">
-                    <Video size={24} className="text-green-400 mx-auto mb-1" />
-                    <span className="text-xs text-slate-400">Flux actif</span>
-                  </div>
-                ) : camera.statut === 'offline' ? (
-                  <div className="text-center">
-                    <WifiOff size={24} className="text-red-400 mx-auto mb-1" />
-                    <span className="text-xs text-red-400">Hors ligne</span>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <Wrench size={24} className="text-yellow-600 mx-auto mb-1" />
-                    <span className="text-xs text-yellow-600">Maintenance</span>
-                  </div>
-                )}
-              </div>
+                {/* Camera Preview Placeholder */}
+                <div className={`w-full h-32 rounded-lg mb-3 flex items-center justify-center ${
+                  camera.statut === 'online' ? 'bg-slate-800' :
+                  camera.statut === 'offline' ? 'bg-slate-200' :
+                  'bg-yellow-100'
+                }`}>
+                  {camera.statut === 'online' ? (
+                    <div className="text-center">
+                      <Video size={24} className="text-green-400 mx-auto mb-1" />
+                      <span className="text-xs text-slate-400">Flux actif</span>
+                    </div>
+                  ) : camera.statut === 'offline' ? (
+                    <div className="text-center">
+                      <WifiOff size={24} className="text-red-400 mx-auto mb-1" />
+                      <span className="text-xs text-red-400">Hors ligne</span>
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <Wrench size={24} className="text-yellow-600 mx-auto mb-1" />
+                      <span className="text-xs text-yellow-600">Maintenance</span>
+                    </div>
+                  )}
+                </div>
 
-              {/* Info */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-semibold text-slate-800">{camera.nom}</h4>
-                  <span className={`w-2.5 h-2.5 rounded-full ${
-                    camera.statut === 'online' ? 'bg-green-500' :
-                    camera.statut === 'offline' ? 'bg-red-500' :
-                    'bg-yellow-500'
-                  }`} />
+                {/* Info */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-slate-800">{camera.nom}</h4>
+                    <span className={`w-2.5 h-2.5 rounded-full ${
+                      camera.statut === 'online' ? 'bg-green-500' :
+                      camera.statut === 'offline' ? 'bg-red-500' :
+                      'bg-yellow-500'
+                    }`} />
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-slate-500">
+                    <MapPin size={12} />
+                    <span>{site?.nom} — {camera.zone}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">{camera.fabricant} {camera.modele && `— ${camera.modele}`}</span>
+                    <span className="text-slate-400">ID: {camera.id}</span>
+                  </div>
+                  {camera.derniereConnexion && (
+                    <p className="text-xs text-slate-400">
+                      Dernière connexion : {new Date(camera.derniereConnexion).toLocaleString('fr-FR', {
+                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                      })}
+                    </p>
+                  )}
                 </div>
-                <div className="flex items-center gap-1 text-xs text-slate-500">
-                  <MapPin size={12} />
-                  <span>{site?.nom} — {camera.zone}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">{camera.fabricant} — {camera.modele}</span>
-                  <span className="text-slate-400">ID: {camera.id}</span>
-                </div>
-                {camera.derniereAlerte && (
-                  <p className="text-xs text-red-500">
-                    Dernière alerte : {new Date(camera.derniereAlerte).toLocaleString('fr-FR', {
-                      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                    })}
-                  </p>
-                )}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* RGPD Notice */}
       <div className="bg-amber-50 rounded-xl border border-amber-200 p-5">
