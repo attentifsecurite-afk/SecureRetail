@@ -8,6 +8,8 @@ Plateforme complète de supervision multi-sites pour la sécurité privée et la
 - **Tour de contrôle** — Dashboard temps réel avec KPIs et alertes
 - **Cartographie Google Maps** — Visualisation géographique des 10 sites avec scores de risque
 - **ShopGuard AI Engine** — Moteur IA multi-caméras (YOLO26 + Pose + TensorRT + LLM Guard)
+- **Connexion caméras** — Gestion IP/ONVIF/DVR/NVR/Contrôle d'accès multi-marques
+- **Installation caméras** — Configuration et paramétrage des équipements
 - **Main courante électronique** — Journal des événements sûreté
 - **Rondes & patrouilles** — Suivi des circuits et points de contrôle
 - **Anti-intrusion & alarmes** — Gestion des alarmes et levées de doute

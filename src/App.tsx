@@ -11,6 +11,7 @@ import { Demarque } from './components/Demarque';
 import { Reporting } from './components/Reporting';
 import { AdvancedMap } from './components/AdvancedMapSimple';
 import { ShopGuardAI } from './components/ShopGuardAI';
+import { CameraConnection } from './components/CameraConnection';
 import { CameraSetup } from './components/CameraSetup';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -23,6 +24,7 @@ function App() {
       case 'dashboard': return <Dashboard />;
       case 'map': return <AdvancedMap />;
       case 'shopguard': return <ShopGuardAI />;
+      case 'camera-connection': return <CameraConnection />;
       case 'camera-setup': return <CameraSetup />;
       case 'main-courante': return <MainCourante />;
       case 'rondes': return <Rondes />;
