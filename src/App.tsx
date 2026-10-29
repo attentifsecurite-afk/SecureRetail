@@ -14,6 +14,9 @@ import { ShopGuardAI } from './components/ShopGuardAI';
 import { CameraConnection } from './components/CameraConnection';
 import { CameraSetup } from './components/CameraSetup';
 import { CRM } from './components/CRM';
+import { Billing } from './components/Billing';
+import { Support } from './components/Support';
+import { LandingPage } from './components/LandingPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
@@ -22,9 +25,12 @@ function App() {
 
   const renderView = () => {
     switch (activeView) {
+      case 'landing': return <LandingPage />;
       case 'dashboard': return <Dashboard />;
       case 'map': return <AdvancedMap />;
       case 'crm': return <CRM />;
+      case 'billing': return <Billing />;
+      case 'support': return <Support />;
       case 'shopguard': return <ShopGuardAI />;
       case 'camera-connection': return <CameraConnection />;
       case 'camera-setup': return <CameraSetup />;

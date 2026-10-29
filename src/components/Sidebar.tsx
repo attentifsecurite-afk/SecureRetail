@@ -16,7 +16,9 @@ import {
   Brain,
   Settings,
   Network,
-  Briefcase
+  Briefcase,
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -30,6 +32,8 @@ const menuItems = [
   { id: 'dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { id: 'map', label: 'Cartographie avancée', icon: Map },
   { id: 'crm', label: 'CRM Sites', icon: Briefcase },
+  { id: 'billing', label: 'Facturation', icon: FileText },
+  { id: 'support', label: 'Support', icon: MessageSquare },
   { id: 'shopguard', label: 'ShopGuard AI', icon: Brain },
   { id: 'camera-connection', label: 'Connexion caméras', icon: Network },
   { id: 'camera-setup', label: 'Installation caméras', icon: Settings },
