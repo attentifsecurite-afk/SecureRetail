@@ -18,6 +18,7 @@ import { Billing } from './components/Billing';
 import { Support } from './components/Support';
 import { LandingPage } from './components/LandingPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard');
@@ -47,23 +48,25 @@ function App() {
   };
 
   return (
-    <ErrorBoundary>
-      <div className="flex h-screen bg-slate-50 overflow-hidden">
-        <Sidebar
-          activeView={activeView}
-          onViewChange={setActiveView}
-          isOpen={sidebarOpen}
-          onToggle={() => setSidebarOpen(!sidebarOpen)}
-        />
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-            <ErrorBoundary>
-              {renderView()}
-            </ErrorBoundary>
-          </div>
-        </main>
-      </div>
-    </ErrorBoundary>
+    <AuthProvider>
+      <ErrorBoundary>
+        <div className="flex h-screen bg-slate-50 overflow-hidden">
+          <Sidebar
+            activeView={activeView}
+            onViewChange={setActiveView}
+            isOpen={sidebarOpen}
+            onToggle={() => setSidebarOpen(!sidebarOpen)}
+          />
+          <main className="flex-1 overflow-y-auto">
+            <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+              <ErrorBoundary>
+                {renderView()}
+              </ErrorBoundary>
+            </div>
+          </main>
+        </div>
+      </ErrorBoundary>
+    </AuthProvider>
   );
 }
 
