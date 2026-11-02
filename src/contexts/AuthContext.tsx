@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authApi } from '../services/api';
 
 interface User {
   id: number;
@@ -25,31 +24,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in on mount
-    const token = localStorage.getItem('token');
-    if (token) {
-      authApi.getMe()
-        .then(setUser)
-        .catch(() => {
-          localStorage.removeItem('token');
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    // Import dynamique pour éviter les problèmes de chargement
+    const initAuth = async () => {
+      try {
+        const { authApi } = await import('../services/api');
+        const token = localStorage.getItem('token');
+        if (token) {
+          authApi.getMe()
+            .then(setUser)
+            .catch(() => {
+              localStorage.removeItem('token');
+            })
+            .finally(() => setLoading(false));
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        setLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
+    const { authApi } = await import('../services/api');
     const userData = await authApi.login(email, password);
     setUser(userData);
   };
 
   const register = async (data: { email: string; password: string; firstName: string; lastName: string }) => {
+    const { authApi } = await import('../services/api');
     const userData = await authApi.register(data);
     setUser(userData);
   };
 
   const logout = async () => {
+    const { authApi } = await import('../services/api');
     await authApi.logout();
     setUser(null);
   };
